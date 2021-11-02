@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class ThirdPlayerMovement : MonoBehaviour
+public class ThirdPersonMovement : MonoBehaviour
 {
 
   public CharacterController controller;
