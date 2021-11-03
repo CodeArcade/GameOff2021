@@ -14,6 +14,7 @@ public class DungeonGenerator : MonoBehaviour
     public TileBase WallTile;
 
     public GameObject PlayerPrefab;
+    public Camera PlayerCamera;
 
     public int NodeCount;
     public int Height;
@@ -33,6 +34,7 @@ public class DungeonGenerator : MonoBehaviour
         Random = new System.Random();
 
         List<Vector2> nodes = GenerateNodes();
+        List<Vector2> allPathNodes = new List<Vector2>();
 
         for (int i = 0; i < nodes.Count; i++)
         {
@@ -43,6 +45,7 @@ public class DungeonGenerator : MonoBehaviour
 
             foreach (Vector2 pathNode in pathNodes)
             {
+                allPathNodes.Add(pathNode);
                 GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
 
                 // path moves to the right or the left
@@ -52,8 +55,11 @@ public class DungeonGenerator : MonoBehaviour
 
                     for (int j = 0; j < wallSize; j++)
                     {
+                        allPathNodes.Add(new Vector2(pathNode.x, pathNode.y + j + 1));
                         GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + j + 1, (int)GroundTilemap.transform.position.y), GroundTile);
-                        GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + j + 1, (int)GroundTilemap.transform.position.y), GroundTile);
+
+                        allPathNodes.Add(new Vector2(pathNode.x, pathNode.y - j - 1));
+                        GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - j - 1, (int)GroundTilemap.transform.position.y), GroundTile);
                     }
                 }
 
@@ -64,12 +70,27 @@ public class DungeonGenerator : MonoBehaviour
 
                     for (int j = 0; j < wallSize; j++)
                     {
+                        allPathNodes.Add(new Vector2(pathNode.x + j + 1, pathNode.y));
                         GroundTilemap.SetTile(new Vector3Int((int)pathNode.x + j + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
-                        GroundTilemap.SetTile(new Vector3Int((int)pathNode.x + j + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+
+                        allPathNodes.Add(new Vector2(pathNode.x - j - 1, pathNode.y));
+                        GroundTilemap.SetTile(new Vector3Int((int)pathNode.x - j - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
                     }
                 }
             }
         }
+
+        for (int x = -100; x < Width + 100; x++)
+            for (int y = -100; y < Height + 100; y++)
+                WallTilemap.SetTile(new Vector3Int(x, y, (int)WallTilemap.transform.position.z),  WallTile);
+
+        foreach (Vector2 pathNode in allPathNodes)
+            WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.z), null);
+
+        PlayerPrefab.GetComponent<ThirdPersonMovement>().mainCamera = PlayerCamera;
+        GameObject player = Instantiate(PlayerPrefab);
+        player.transform.position = GroundTilemap.CellToWorld(new Vector3Int((int)nodes.First().x, (int)nodes.First().y, (int)GroundTilemap.transform.position.z));
+        player.transform.position += new Vector3(0, 1, 0);
 
     }
 
@@ -184,7 +205,7 @@ public class DungeonGenerator : MonoBehaviour
 
         for (int i = 0; i < curvePointCount; i += curveSize)
         {
-            int nodeIndex = (i + 1) * curvePointDistance;
+            int nodeIndex = Math.Min((i + 1) * curvePointDistance, curvePointCount - 1);
             int numberCount = 0;
             bool increaseCurve = curvePointCounter <= GetSum(curvePointCount, ref numberCount) / numberCount;
             Vector2 newNode = new Vector2(line[nodeIndex].x, line[nodeIndex].y);
@@ -201,7 +222,7 @@ public class DungeonGenerator : MonoBehaviour
                 if (!increaseCurve) newNode = new Vector2(direction ? lastNode.x - curveSize : lastNode.x + curveSize, newNode.y);
             }
 
-             curve.AddRange(GetPointsBetweenNodes(lastNode, newNode));
+            curve.AddRange(GetPointsBetweenNodes(lastNode, newNode));
 
             curvePointCounter++;
             lastNode = newNode;

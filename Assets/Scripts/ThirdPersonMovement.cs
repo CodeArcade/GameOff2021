@@ -11,7 +11,6 @@ public class ThirdPersonMovement : MonoBehaviour
   public float speed = 6f;
 
   public float turnSmoothTime = 0.1f;
-  float turnSmoothVelocity;
 
   // Update is called once per frame
   void Update()
