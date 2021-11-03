@@ -80,12 +80,24 @@ public class DungeonGenerator : MonoBehaviour
             }
         }
 
-        for (int x = -100; x < Width + 100; x++)
-            for (int y = -100; y < Height + 100; y++)
-                WallTilemap.SetTile(new Vector3Int(x, y, (int)WallTilemap.transform.position.z),  WallTile);
+        WallTilemap.SetTilesBlock(new BoundsInt(0, 0, 0, Width, Height, 0), new TileBase[] { WallTile });
 
         foreach (Vector2 pathNode in allPathNodes)
-            WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.z), null);
+        {
+            WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.y), null);
+
+            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y)))
+                WallTilemap.SetTile(new Vector3Int((int)pathNode.x + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), WallTile);
+
+            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y)))
+                WallTilemap.SetTile(new Vector3Int((int)pathNode.x - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), WallTile);
+
+            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1, (int)GroundTilemap.transform.position.y)))
+                WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1, (int)GroundTilemap.transform.position.y), WallTile);
+
+            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1, (int)GroundTilemap.transform.position.y)))
+                WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1, (int)GroundTilemap.transform.position.y), WallTile);
+        }
 
         PlayerPrefab.GetComponent<ThirdPersonMovement>().mainCamera = PlayerCamera;
         GameObject player = Instantiate(PlayerPrefab);
