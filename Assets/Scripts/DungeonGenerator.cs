@@ -2,8 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using UnityEngine.UI;
 
 public class DungeonGenerator : MonoBehaviour
 {
@@ -24,7 +27,7 @@ public class DungeonGenerator : MonoBehaviour
 
     private System.Random Random { get; set; }
 
-    private void Awake()
+    void Awake()
     {
         GenerateDungeon();
     }
@@ -43,7 +46,6 @@ public class DungeonGenerator : MonoBehaviour
 
         AddRoom(EggRoom, EggRoomCount, rooms, allPathNodes);
 
-
         BuildWalls(allPathNodes);
 
         PlayerPrefab.GetComponent<ThirdPersonMovement>().mainCamera = PlayerCamera;
@@ -56,13 +58,16 @@ public class DungeonGenerator : MonoBehaviour
     {
         for (int i = 0; i < count; i++)
         {
+            Debug.Log($"Spawning room {i + 1} / {count}");
+
             Bounds? roomBounds = null;
             List<Vector2> roomNodes = new List<Vector2>();
             int spawnTries = 5;
             int spawnTryCounter = 0;
+            Vector3Int position = new Vector3Int();
             while (spawnTryCounter != spawnTries)
             {
-                Vector3Int position = new Vector3Int(Random.Next(0, Width), Random.Next(0, Height), (int)GroundTilemap.transform.position.z);
+                 position = new Vector3Int(Random.Next(0, Width), Random.Next(0, Height), (int)GroundTilemap.transform.position.z);
                 GameObject room = Instantiate(roomPrefab);
                 Room roomScript = room.GetComponent<Room>();
 
@@ -85,8 +90,8 @@ public class DungeonGenerator : MonoBehaviour
             rooms.Add(roomBounds.Value);
 
             AddPathNodes(allPathNodes,
-                BuildPath(new Vector2(roomBounds.Value.center.x, roomBounds.Value.center.y),
-                GetClosestNode(new Vector2(roomBounds.Value.center.x, roomBounds.Value.center.y), allPathNodes)));
+                BuildPath(new Vector2(position.x, position.y),
+                GetClosestNode(new Vector2(position.x, position.y), allPathNodes)));
 
             AddPathNodes(allPathNodes, roomNodes);
         }
@@ -113,8 +118,14 @@ public class DungeonGenerator : MonoBehaviour
 
     private List<Vector2> BuildPath(Vector2 sourceNode, Vector2 targetNode)
     {
-        List<Vector2> pathNodes = TransformLineToCurve(GetPointsBetweenNodes(sourceNode, targetNode));
+        List<Vector2> pathNodes = GetPointsBetweenNodes(sourceNode, targetNode);
         List<Vector2> allPathNodes = new List<Vector2>();
+        int sizeChangeIntervallX = 3;
+        int sizeChangeIntervallY = 3;
+        int sizeChangeIntervallXCounter = 3;
+        int sizeChangeIntervallYCounter = 3;
+        int wallSizeX = 0;
+        int wallSizeY = 0;
 
         foreach (Vector2 pathNode in pathNodes)
         {
@@ -124,9 +135,15 @@ public class DungeonGenerator : MonoBehaviour
             // path moves to the right or the left
             if (pathNode.x > sourceNode.x || pathNode.x < sourceNode.x)
             {
-                int wallSize = Random.Next(1, 3);
+                if (sizeChangeIntervallXCounter == sizeChangeIntervallX)
+                {
+                    int size = Random.Next(6, 10);
+                    if (size != wallSizeX) wallSizeX = size > wallSizeX ? wallSizeX + 1 : wallSizeX - 1;
+                    sizeChangeIntervallXCounter = 0;
+                }
+                else sizeChangeIntervallXCounter++;
 
-                for (int j = 0; j < wallSize; j++)
+                for (int j = 0; j < wallSizeX; j++)
                 {
                     AddPathNode(allPathNodes, new Vector2(pathNode.x, pathNode.y + j + 1));
                     GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + j + 1, (int)GroundTilemap.transform.position.y), GroundTile);
@@ -139,9 +156,15 @@ public class DungeonGenerator : MonoBehaviour
             // path moves up or down
             if (pathNode.y > sourceNode.y || pathNode.y < sourceNode.y)
             {
-                int wallSize = Random.Next(1, 3);
+                if (sizeChangeIntervallYCounter == sizeChangeIntervallY)
+                {
+                    int size = Random.Next(6, 10);
+                    if (size != wallSizeY) wallSizeY = size > wallSizeY ? wallSizeY + 1 : wallSizeY - 1;
+                    sizeChangeIntervallYCounter = 0;
+                }
+                else sizeChangeIntervallYCounter++;
 
-                for (int j = 0; j < wallSize; j++)
+                for (int j = 0; j < wallSizeY; j++)
                 {
                     AddPathNode(allPathNodes, new Vector2(pathNode.x + j + 1, pathNode.y));
                     GroundTilemap.SetTile(new Vector3Int((int)pathNode.x + j + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
@@ -157,9 +180,11 @@ public class DungeonGenerator : MonoBehaviour
 
     private void BuildWalls(List<Vector2> nodes)
     {
+        int counter = 0;
+
         foreach (var pathNode in nodes)
         {
-            WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)WallTilemap.transform.position.z), null);
+            Debug.Log($"Building Wall { counter++ } / {nodes.Count}");
 
             if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.z)))
                 WallTilemap.SetTile(new Vector3Int((int)pathNode.x + 1, (int)pathNode.y, (int)WallTilemap.transform.position.z), WallTile);
@@ -172,7 +197,6 @@ public class DungeonGenerator : MonoBehaviour
 
             if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1, (int)GroundTilemap.transform.position.z)))
                 WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1, (int)WallTilemap.transform.position.z), WallTile);
-
         }
     }
 
@@ -253,6 +277,7 @@ public class DungeonGenerator : MonoBehaviour
 
     private List<Vector2> TransformLineToCurve(List<Vector2> line)
     {
+        // this does not work as intended
         if (line.Count < 10) return line;
 
         List<Vector2> curve = new List<Vector2>();

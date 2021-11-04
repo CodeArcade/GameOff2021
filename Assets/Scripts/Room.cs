@@ -28,6 +28,7 @@ public class Room : MonoBehaviour
         return GetTiles(GroundTilemap, mainTilemap);
     }
 
+
     private List<Vector2> GetTiles(Tilemap tilemap, Tilemap mainTilemap)
     {
         return GroundTilemap.GetComponentsInChildren(typeof(Component)).
