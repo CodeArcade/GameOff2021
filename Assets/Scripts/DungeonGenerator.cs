@@ -16,9 +16,11 @@ public class DungeonGenerator : MonoBehaviour
     public GameObject PlayerPrefab;
     public Camera PlayerCamera;
 
-    public int NodeCount;
     public int Height;
     public int Width;
+
+    public GameObject EggRoom;
+    public int EggRoomCount;
 
     private System.Random Random { get; set; }
 
@@ -33,118 +35,167 @@ public class DungeonGenerator : MonoBehaviour
         WallTilemap.ClearAllTiles();
         Random = new System.Random();
 
-        List<Vector2> nodes = GenerateNodes();
         List<Vector2> allPathNodes = new List<Vector2>();
+        List<Bounds> rooms = new List<Bounds>();
+        Vector2 centerNode = new Vector2(Random.Next(0, Width), Random.Next(0, Height));
 
-        for (int i = 0; i < nodes.Count; i++)
-        {
-            int targetIndex = i + 1;
-            if (i == nodes.Count - 1) break;
+        AddPathNode(allPathNodes, centerNode);
 
-            List<Vector2> pathNodes = TransformLineToCurve(GetPointsBetweenNodes(nodes[i], nodes[targetIndex]));
+        AddRoom(EggRoom, EggRoomCount, rooms, allPathNodes);
 
-            foreach (Vector2 pathNode in pathNodes)
-            {
-                allPathNodes.Add(pathNode);
-                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
 
-                // path moves to the right or the left
-                if (pathNode.x > nodes[i].x || pathNode.x < nodes[i].x)
-                {
-                    int wallSize = Random.Next(1, 3);
-
-                    for (int j = 0; j < wallSize; j++)
-                    {
-                        allPathNodes.Add(new Vector2(pathNode.x, pathNode.y + j + 1));
-                        GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + j + 1, (int)GroundTilemap.transform.position.y), GroundTile);
-
-                        allPathNodes.Add(new Vector2(pathNode.x, pathNode.y - j - 1));
-                        GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - j - 1, (int)GroundTilemap.transform.position.y), GroundTile);
-                    }
-                }
-
-                // path moves up or down
-                if (pathNode.y > nodes[i].y || pathNode.y < nodes[i].y)
-                {
-                    int wallSize = Random.Next(1, 3);
-
-                    for (int j = 0; j < wallSize; j++)
-                    {
-                        allPathNodes.Add(new Vector2(pathNode.x + j + 1, pathNode.y));
-                        GroundTilemap.SetTile(new Vector3Int((int)pathNode.x + j + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
-
-                        allPathNodes.Add(new Vector2(pathNode.x - j - 1, pathNode.y));
-                        GroundTilemap.SetTile(new Vector3Int((int)pathNode.x - j - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
-                    }
-                }
-            }
-        }
-
-        WallTilemap.SetTilesBlock(new BoundsInt(0, 0, 0, Width, Height, 0), new TileBase[] { WallTile });
-
-        foreach (Vector2 pathNode in allPathNodes)
-        {
-            WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.y), null);
-
-            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y)))
-                WallTilemap.SetTile(new Vector3Int((int)pathNode.x + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), WallTile);
-
-            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y)))
-                WallTilemap.SetTile(new Vector3Int((int)pathNode.x - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), WallTile);
-
-            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1, (int)GroundTilemap.transform.position.y)))
-                WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1, (int)GroundTilemap.transform.position.y), WallTile);
-
-            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1, (int)GroundTilemap.transform.position.y)))
-                WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1, (int)GroundTilemap.transform.position.y), WallTile);
-        }
+        BuildWalls(allPathNodes);
 
         PlayerPrefab.GetComponent<ThirdPersonMovement>().mainCamera = PlayerCamera;
         GameObject player = Instantiate(PlayerPrefab);
-        player.transform.position = GroundTilemap.CellToWorld(new Vector3Int((int)nodes.First().x, (int)nodes.First().y, (int)GroundTilemap.transform.position.z));
-        player.transform.position += new Vector3(0, 1, 0);
-
+        player.transform.position = GroundTilemap.CellToWorld(new Vector3Int((int)centerNode.x, (int)centerNode.y, (int)GroundTilemap.transform.position.z));
+        player.transform.position += new Vector3(0, 3, 0);
     }
 
-    private List<Vector2> GenerateNodes()
+    private void AddRoom(GameObject roomPrefab, int count, List<Bounds> rooms, List<Vector2> allPathNodes)
     {
-        List<Vector2> nodes = new List<Vector2>();
-        for (int i = 0; i < NodeCount; i++)
+        for (int i = 0; i < count; i++)
         {
-            Vector2 node = new Vector2(Random.Next(0, Width), Random.Next(0, Height));
-
-            if (nodes.Any(x => x.x == node.x && x.y == node.y))
+            Bounds? roomBounds = null;
+            List<Vector2> roomNodes = new List<Vector2>();
+            int spawnTries = 5;
+            int spawnTryCounter = 0;
+            while (spawnTryCounter != spawnTries)
             {
-                i--;
-                continue;
+                Vector3Int position = new Vector3Int(Random.Next(0, Width), Random.Next(0, Height), (int)GroundTilemap.transform.position.z);
+                GameObject room = Instantiate(roomPrefab);
+                Room roomScript = room.GetComponent<Room>();
+
+                room.transform.position = GroundTilemap.CellToWorld(position);
+                roomNodes = roomScript.GetFloorTilePositions(GroundTilemap);
+                roomBounds = roomScript.Bounds(roomNodes);
+                spawnTryCounter++;
+
+                if (CanAddRoom(roomBounds.Value, rooms))
+                    break;
+                else
+                    Destroy(room);
             }
 
-            nodes.Add(node);
-        }
+            if (spawnTryCounter == spawnTries) continue;
 
-        return nodes;
+            foreach (Vector2 roomNode in roomNodes)
+                GroundTilemap.SetTile(new Vector3Int((int)roomNode.x, (int)roomNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+
+            rooms.Add(roomBounds.Value);
+
+            AddPathNodes(allPathNodes,
+                BuildPath(new Vector2(roomBounds.Value.center.x, roomBounds.Value.center.y),
+                GetClosestNode(new Vector2(roomBounds.Value.center.x, roomBounds.Value.center.y), allPathNodes)));
+
+            AddPathNodes(allPathNodes, roomNodes);
+        }
     }
 
-    //private Vector2 GetClosestNode(Vector2 sourceNode, List<Vector2> nodes)
-    //{
-    //    Vector2 closestNode = Vector2.zero;
-    //    float distance = -1;
+    private void AddPathNode(List<Vector2> pathNodes, Vector2 node)
+    {
+        if (pathNodes.Any(x => x.x == node.x && x.y == node.y)) return;
+        pathNodes.Add(node);
+    }
 
-    //    foreach (Vector2 targetNode in nodes)
-    //    {
-    //        if (sourceNode == targetNode) continue;
+    private void AddPathNodes(List<Vector2> pathNodes, List<Vector2> nodes)
+    {
+        foreach (Vector2 node in nodes) AddPathNode(pathNodes, node);
+    }
 
-    //        float newDistance = (targetNode - sourceNode).sqrMagnitude;
+    private bool CanAddRoom(Bounds roomBounds, List<Bounds> rooms)
+    {
+        foreach (Bounds bounds in rooms)
+            if (bounds.Intersects(roomBounds)) return false;
 
-    //        if (newDistance < distance || distance == -1)
-    //        {
-    //            distance = newDistance;
-    //            closestNode = targetNode;
-    //        }
-    //    }
+        return true;
+    }
 
-    //    return closestNode;
-    //}
+    private List<Vector2> BuildPath(Vector2 sourceNode, Vector2 targetNode)
+    {
+        List<Vector2> pathNodes = TransformLineToCurve(GetPointsBetweenNodes(sourceNode, targetNode));
+        List<Vector2> allPathNodes = new List<Vector2>();
+
+        foreach (Vector2 pathNode in pathNodes)
+        {
+            AddPathNode(allPathNodes, pathNode);
+            GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+
+            // path moves to the right or the left
+            if (pathNode.x > sourceNode.x || pathNode.x < sourceNode.x)
+            {
+                int wallSize = Random.Next(1, 3);
+
+                for (int j = 0; j < wallSize; j++)
+                {
+                    AddPathNode(allPathNodes, new Vector2(pathNode.x, pathNode.y + j + 1));
+                    GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + j + 1, (int)GroundTilemap.transform.position.y), GroundTile);
+
+                    AddPathNode(allPathNodes, new Vector2(pathNode.x, pathNode.y - j - 1));
+                    GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - j - 1, (int)GroundTilemap.transform.position.y), GroundTile);
+                }
+            }
+
+            // path moves up or down
+            if (pathNode.y > sourceNode.y || pathNode.y < sourceNode.y)
+            {
+                int wallSize = Random.Next(1, 3);
+
+                for (int j = 0; j < wallSize; j++)
+                {
+                    AddPathNode(allPathNodes, new Vector2(pathNode.x + j + 1, pathNode.y));
+                    GroundTilemap.SetTile(new Vector3Int((int)pathNode.x + j + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+
+                    AddPathNode(allPathNodes, new Vector2(pathNode.x - j - 1, pathNode.y));
+                    GroundTilemap.SetTile(new Vector3Int((int)pathNode.x - j - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+                }
+            }
+        }
+
+        return allPathNodes;
+    }
+
+    private void BuildWalls(List<Vector2> nodes)
+    {
+        foreach (var pathNode in nodes)
+        {
+            WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)WallTilemap.transform.position.z), null);
+
+            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.z)))
+                WallTilemap.SetTile(new Vector3Int((int)pathNode.x + 1, (int)pathNode.y, (int)WallTilemap.transform.position.z), WallTile);
+
+            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.z)))
+                WallTilemap.SetTile(new Vector3Int((int)pathNode.x - 1, (int)pathNode.y, (int)WallTilemap.transform.position.z), WallTile);
+
+            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1, (int)GroundTilemap.transform.position.z)))
+                WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1, (int)WallTilemap.transform.position.z), WallTile);
+
+            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1, (int)GroundTilemap.transform.position.z)))
+                WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1, (int)WallTilemap.transform.position.z), WallTile);
+
+        }
+    }
+
+    private Vector2 GetClosestNode(Vector2 sourceNode, List<Vector2> nodes)
+    {
+        Vector2 closestNode = Vector2.zero;
+        float distance = -1;
+
+        foreach (Vector2 targetNode in nodes)
+        {
+            if (sourceNode == targetNode) continue;
+
+            float newDistance = (targetNode - sourceNode).sqrMagnitude;
+
+            if (newDistance < distance || distance == -1)
+            {
+                distance = newDistance;
+                closestNode = targetNode;
+            }
+        }
+
+        return closestNode;
+    }
 
     private List<Vector2> GetPointsBetweenNodes(Vector2 sourceNode, Vector2 targetNode)
     {
