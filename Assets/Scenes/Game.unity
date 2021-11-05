@@ -538,6 +538,8 @@ MonoBehaviour:
   SpawnRoom: {fileID: 7967021459052821658, guid: 9799ec43424fa8c44ab1d8101b95ebfc, type: 3}
   BossRoom: {fileID: 4194771424739293868, guid: c79bdeb73b5e31a4e9e9840228c5bc55, type: 3}
   PathSize: 8
+  PathEnemy: {fileID: 7496858455558908913, guid: 3993dd76a7fe16a44be541f61a3679a6, type: 3}
+  PathEnemySpawnChance: 10
 --- !u!4 &1124017288
 Transform:
   m_ObjectHideFlags: 0
