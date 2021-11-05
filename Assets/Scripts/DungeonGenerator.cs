@@ -30,6 +30,9 @@ public class DungeonGenerator : MonoBehaviour
 
     public int PathSize;
 
+    public GameObject PathEnemy;
+    public int PathEnemySpawnChance;
+
     private System.Random Random { get; set; }
 
     void Awake()
@@ -63,7 +66,7 @@ public class DungeonGenerator : MonoBehaviour
             (int)(spawnRoom.min.x + spawnRoom.size.x),
             (int)(spawnRoom.min.y + spawnRoom.size.y),
             (int)GroundTilemap.transform.position.z));
-        player.transform.position += new Vector3(0, 3, 0);
+        player.transform.position += new Vector3(0, 1.5f, 0);
     }
 
     private void AddRoom(GameObject roomPrefab, int count, List<Bounds> rooms, List<Vector2> allPathNodes)
@@ -146,6 +149,17 @@ public class DungeonGenerator : MonoBehaviour
         {
             AddPathNode(allPathNodes, pathNode);
             GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+
+            if (Random.Next(1, 101) <= PathEnemySpawnChance)
+            {
+                Vector3 position = GroundTilemap.CellToWorld(new Vector3Int(
+                    (int)pathNode.x,
+                    (int)pathNode.y,
+                    (int)GroundTilemap.transform.position.z));
+                position += new Vector3(0, 1.5f, 0);
+
+                Instantiate(PathEnemy).transform.position = position;
+            }
 
             for (int i = 0; i < PathSize; i++)
             {
@@ -262,9 +276,9 @@ public class DungeonGenerator : MonoBehaviour
             track.Add(new Vector2(lastTrack.x + 1 + i, lastTrack.y));
             track.Add(new Vector2(lastTrack.x - 1 - i, lastTrack.y));
             track.Add(new Vector2(lastTrack.x, lastTrack.y + 1 + i));
-            track.Add(new Vector2(lastTrack.x, lastTrack.y - 1- i));
+            track.Add(new Vector2(lastTrack.x, lastTrack.y - 1 - i));
         }
-        
+
         return track;
     }
 
