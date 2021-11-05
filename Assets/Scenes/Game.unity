@@ -535,6 +535,9 @@ MonoBehaviour:
   Width: 500
   EggRoom: {fileID: 943740435182688461, guid: 21ecc651d973b924fa2958c3cff64abd, type: 3}
   EggRoomCount: 10
+  SpawnRoom: {fileID: 7967021459052821658, guid: 9799ec43424fa8c44ab1d8101b95ebfc, type: 3}
+  BossRoom: {fileID: 4194771424739293868, guid: c79bdeb73b5e31a4e9e9840228c5bc55, type: 3}
+  PathSize: 8
 --- !u!4 &1124017288
 Transform:
   m_ObjectHideFlags: 0

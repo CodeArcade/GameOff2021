@@ -25,6 +25,11 @@ public class DungeonGenerator : MonoBehaviour
     public GameObject EggRoom;
     public int EggRoomCount;
 
+    public GameObject SpawnRoom;
+    public GameObject BossRoom;
+
+    public int PathSize;
+
     private System.Random Random { get; set; }
 
     void Awake()
@@ -40,9 +45,13 @@ public class DungeonGenerator : MonoBehaviour
 
         List<Vector2> allPathNodes = new List<Vector2>();
         List<Bounds> rooms = new List<Bounds>();
-        Vector2 centerNode = new Vector2(Random.Next(0, Width), Random.Next(0, Height));
-
-        AddPathNode(allPathNodes, centerNode);
+        Vector2 node1 = new Vector2(Random.Next((int)(Width * 0.1), (int)(Width * 0.9)), Random.Next((int)(Height * 0.1), (int)(Height * 0.9)));
+        AddPathNode(allPathNodes, node1);
+        Bounds spawnRoom = AddRoomAtCoordinate(SpawnRoom, new Vector2(0, 0), rooms, allPathNodes).Value;
+        Vector2 node2 = new Vector2(Random.Next((int)(Width * 0.1), (int)(Width * 0.9)), Random.Next((int)(Height * 0.1), (int)(Height * 0.9)));
+        AddPathNode(allPathNodes, node1);
+        AddPathNodes(allPathNodes, BuildPath(node1, node2));
+        AddRoomAtCoordinate(BossRoom, new Vector2(Width, Height), rooms, allPathNodes);
 
         AddRoom(EggRoom, EggRoomCount, rooms, allPathNodes);
 
@@ -50,7 +59,10 @@ public class DungeonGenerator : MonoBehaviour
 
         PlayerPrefab.GetComponent<ThirdPersonMovement>().mainCamera = PlayerCamera;
         GameObject player = Instantiate(PlayerPrefab);
-        player.transform.position = GroundTilemap.CellToWorld(new Vector3Int((int)centerNode.x, (int)centerNode.y, (int)GroundTilemap.transform.position.z));
+        player.transform.position = GroundTilemap.CellToWorld(new Vector3Int(
+            (int)(spawnRoom.min.x + spawnRoom.size.x),
+            (int)(spawnRoom.min.y + spawnRoom.size.y),
+            (int)GroundTilemap.transform.position.z));
         player.transform.position += new Vector3(0, 3, 0);
     }
 
@@ -59,42 +71,51 @@ public class DungeonGenerator : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             Debug.Log($"Spawning room {i + 1} / {count}");
-
-            Bounds? roomBounds = null;
-            List<Vector2> roomNodes = new List<Vector2>();
-            int spawnTries = 5;
-            int spawnTryCounter = 0;
-            Vector3Int position = new Vector3Int();
-            while (spawnTryCounter != spawnTries)
-            {
-                 position = new Vector3Int(Random.Next(0, Width), Random.Next(0, Height), (int)GroundTilemap.transform.position.z);
-                GameObject room = Instantiate(roomPrefab);
-                Room roomScript = room.GetComponent<Room>();
-
-                room.transform.position = GroundTilemap.CellToWorld(position);
-                roomNodes = roomScript.GetFloorTilePositions(GroundTilemap);
-                roomBounds = roomScript.Bounds(roomNodes);
-                spawnTryCounter++;
-
-                if (CanAddRoom(roomBounds.Value, rooms))
-                    break;
-                else
-                    Destroy(room);
-            }
-
-            if (spawnTryCounter == spawnTries) continue;
-
-            foreach (Vector2 roomNode in roomNodes)
-                GroundTilemap.SetTile(new Vector3Int((int)roomNode.x, (int)roomNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
-
-            rooms.Add(roomBounds.Value);
-
-            AddPathNodes(allPathNodes,
-                BuildPath(new Vector2(position.x, position.y),
-                GetClosestNode(new Vector2(position.x, position.y), allPathNodes)));
-
-            AddPathNodes(allPathNodes, roomNodes);
+            AddRoomAtCoordinate(roomPrefab, new Vector2(Random.Next(0, Width), Random.Next(0, Height)), rooms, allPathNodes);
         }
+    }
+
+    private Bounds? AddRoomAtCoordinate(GameObject roomPrefab, Vector2 coordinate, List<Bounds> rooms, List<Vector2> allPathNodes)
+    {
+        Bounds? roomBounds = null;
+        List<Vector2> roomNodes = new List<Vector2>();
+        int spawnTries = 5;
+        int spawnTryCounter = 0;
+        Vector2 center = new Vector2();
+
+        while (spawnTryCounter != spawnTries)
+        {
+            Vector3Int position = new Vector3Int((int)coordinate.x, (int)coordinate.y, (int)GroundTilemap.transform.position.z);
+            GameObject room = Instantiate(roomPrefab);
+            Room roomScript = room.GetComponent<Room>();
+            room.transform.position = GroundTilemap.CellToWorld(position);
+
+            center = roomScript.GetCenter(GroundTilemap);
+            roomNodes = roomScript.GetFloorTilePositions(GroundTilemap);
+            roomBounds = roomScript.Bounds(roomNodes);
+            spawnTryCounter++;
+
+            if (CanAddRoom(roomBounds.Value, rooms))
+                break;
+            else
+                Destroy(room);
+        }
+
+        if (spawnTryCounter == spawnTries) return null;
+
+        foreach (Vector2 roomNode in roomNodes)
+            GroundTilemap.SetTile(new Vector3Int((int)roomNode.x, (int)roomNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+
+        rooms.Add(roomBounds.Value);
+
+        if (allPathNodes.Any())
+            AddPathNodes(allPathNodes,
+                BuildPath(new Vector2(center.x, center.y),
+                GetClosestNode(new Vector2(center.x, center.y), allPathNodes)));
+
+        AddPathNodes(allPathNodes, roomNodes);
+
+        return roomBounds;
     }
 
     private void AddPathNode(List<Vector2> pathNodes, Vector2 node)
@@ -120,58 +141,25 @@ public class DungeonGenerator : MonoBehaviour
     {
         List<Vector2> pathNodes = GetPointsBetweenNodes(sourceNode, targetNode);
         List<Vector2> allPathNodes = new List<Vector2>();
-        int sizeChangeIntervallX = 3;
-        int sizeChangeIntervallY = 3;
-        int sizeChangeIntervallXCounter = 3;
-        int sizeChangeIntervallYCounter = 3;
-        int wallSizeX = 0;
-        int wallSizeY = 0;
 
         foreach (Vector2 pathNode in pathNodes)
         {
             AddPathNode(allPathNodes, pathNode);
             GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
 
-            // path moves to the right or the left
-            if (pathNode.x > sourceNode.x || pathNode.x < sourceNode.x)
+            for (int i = 0; i < PathSize; i++)
             {
-                if (sizeChangeIntervallXCounter == sizeChangeIntervallX)
-                {
-                    int size = Random.Next(6, 10);
-                    if (size != wallSizeX) wallSizeX = size > wallSizeX ? wallSizeX + 1 : wallSizeX - 1;
-                    sizeChangeIntervallXCounter = 0;
-                }
-                else sizeChangeIntervallXCounter++;
+                AddPathNode(allPathNodes, new Vector2(pathNode.x, pathNode.y + i + 1));
+                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + i + 1, (int)GroundTilemap.transform.position.y), GroundTile);
 
-                for (int j = 0; j < wallSizeX; j++)
-                {
-                    AddPathNode(allPathNodes, new Vector2(pathNode.x, pathNode.y + j + 1));
-                    GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + j + 1, (int)GroundTilemap.transform.position.y), GroundTile);
+                AddPathNode(allPathNodes, new Vector2(pathNode.x, pathNode.y - i - 1));
+                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - i - 1, (int)GroundTilemap.transform.position.y), GroundTile);
 
-                    AddPathNode(allPathNodes, new Vector2(pathNode.x, pathNode.y - j - 1));
-                    GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - j - 1, (int)GroundTilemap.transform.position.y), GroundTile);
-                }
-            }
+                AddPathNode(allPathNodes, new Vector2(pathNode.x + i + 1, pathNode.y));
+                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x + i + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
 
-            // path moves up or down
-            if (pathNode.y > sourceNode.y || pathNode.y < sourceNode.y)
-            {
-                if (sizeChangeIntervallYCounter == sizeChangeIntervallY)
-                {
-                    int size = Random.Next(6, 10);
-                    if (size != wallSizeY) wallSizeY = size > wallSizeY ? wallSizeY + 1 : wallSizeY - 1;
-                    sizeChangeIntervallYCounter = 0;
-                }
-                else sizeChangeIntervallYCounter++;
-
-                for (int j = 0; j < wallSizeY; j++)
-                {
-                    AddPathNode(allPathNodes, new Vector2(pathNode.x + j + 1, pathNode.y));
-                    GroundTilemap.SetTile(new Vector3Int((int)pathNode.x + j + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
-
-                    AddPathNode(allPathNodes, new Vector2(pathNode.x - j - 1, pathNode.y));
-                    GroundTilemap.SetTile(new Vector3Int((int)pathNode.x - j - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
-                }
+                AddPathNode(allPathNodes, new Vector2(pathNode.x - i - 1, pathNode.y));
+                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x - i - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
             }
         }
 
@@ -265,6 +253,18 @@ public class DungeonGenerator : MonoBehaviour
             track.Add(new Vector2(x, y));
         }
 
+        // to avoid sharp edges and therefore small hall ways
+
+        Vector2 lastTrack = track.Last();
+
+        for (int i = 0; i < PathSize; i++)
+        {
+            track.Add(new Vector2(lastTrack.x + 1 + i, lastTrack.y));
+            track.Add(new Vector2(lastTrack.x - 1 - i, lastTrack.y));
+            track.Add(new Vector2(lastTrack.x, lastTrack.y + 1 + i));
+            track.Add(new Vector2(lastTrack.x, lastTrack.y - 1- i));
+        }
+        
         return track;
     }
 
@@ -273,64 +273,5 @@ public class DungeonGenerator : MonoBehaviour
         int temp = x;
         x = y;
         y = temp;
-    }
-
-    private List<Vector2> TransformLineToCurve(List<Vector2> line)
-    {
-        // this does not work as intended
-        if (line.Count < 10) return line;
-
-        List<Vector2> curve = new List<Vector2>();
-        int curvePointCount = (line.Count() / 5) + 3;
-        curvePointCount = curvePointCount % 2 == 0 ? curvePointCount + 1 : curvePointCount;
-        int curvePointDistance = line.Count / curvePointCount;
-        bool direction = Random.Next(0, 2) == 1; // true = down | right / false = up / left
-        int curvePointCounter = 0;
-        Vector2 lastNode = line.First();
-        int curveSize = 1;
-
-        curve.Add(line.First());
-
-        for (int i = 0; i < curvePointCount; i += curveSize)
-        {
-            int nodeIndex = Math.Min((i + 1) * curvePointDistance, curvePointCount - 1);
-            int numberCount = 0;
-            bool increaseCurve = curvePointCounter <= GetSum(curvePointCount, ref numberCount) / numberCount;
-            Vector2 newNode = new Vector2(line[nodeIndex].x, line[nodeIndex].y);
-
-            if (line.First().x > line.Last().x || line.First().x < line.Last().x)
-            {
-                newNode += new Vector2(0, direction ? (i + 1) * curveSize : (-i - 1) * curveSize);
-                if (!increaseCurve) newNode = new Vector2(newNode.x, direction ? lastNode.y - curveSize : lastNode.y + curveSize);
-            }
-
-            if (line.First().y > line.Last().y || line.First().y < line.Last().y)
-            {
-                newNode += new Vector2(direction ? (i + 1) * curveSize : (-i - 1) * curveSize, 0);
-                if (!increaseCurve) newNode = new Vector2(direction ? lastNode.x - curveSize : lastNode.x + curveSize, newNode.y);
-            }
-
-            curve.AddRange(GetPointsBetweenNodes(lastNode, newNode));
-
-            curvePointCounter++;
-            lastNode = newNode;
-        }
-
-        curve.AddRange(GetPointsBetweenNodes(lastNode, line.Last()));
-
-        return curve;
-    }
-
-    private int GetSum(int number, ref int numberCount)
-    {
-        int result = 1;
-        numberCount = 0;
-        while (number != 1)
-        {
-            result += number;
-            number -= 1;
-            numberCount++;
-        }
-        return result;
     }
 }

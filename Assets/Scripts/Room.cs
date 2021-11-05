@@ -6,6 +6,13 @@ using UnityEngine.Tilemaps;
 public class Room : MonoBehaviour
 {
     public Tilemap GroundTilemap;
+    public GameObject Center;
+
+    public Vector2 GetCenter(Tilemap mainTilemap)
+    {
+        Vector3 position = mainTilemap.WorldToCell(Center.transform.position);
+        return new Vector2(position.x, position.y);
+    }
 
     public Bounds Bounds(Tilemap tilemap, Tilemap mainTilemap)
     {
