@@ -531,15 +531,20 @@ MonoBehaviour:
   WallTile: {fileID: 11400000, guid: 349876caa355fbb49b9bbc708ec31619, type: 2}
   PlayerPrefab: {fileID: 8839142587821935142, guid: 80b1b1f126375a84eb33e37321eeabec, type: 3}
   PlayerCamera: {fileID: 2142334171}
-  Height: 500
-  Width: 500
-  EggRoom: {fileID: 943740435182688461, guid: 21ecc651d973b924fa2958c3cff64abd, type: 3}
-  EggRoomCount: 10
+  Height: 750
+  Width: 750
+  Rooms:
+  - {fileID: 943740435182688461, guid: 21ecc651d973b924fa2958c3cff64abd, type: 3}
+  - {fileID: 1018178312712104237, guid: 755a65bc84c5f7b4d97c160b3869f930, type: 3}
+  RoomCounts: 0a00000005000000
   SpawnRoom: {fileID: 7967021459052821658, guid: 9799ec43424fa8c44ab1d8101b95ebfc, type: 3}
   BossRoom: {fileID: 4194771424739293868, guid: c79bdeb73b5e31a4e9e9840228c5bc55, type: 3}
   PathSize: 8
-  PathEnemy: {fileID: 7496858455558908913, guid: 3993dd76a7fe16a44be541f61a3679a6, type: 3}
+  PathEnemies:
+  - {fileID: 7496858455558908913, guid: 3993dd76a7fe16a44be541f61a3679a6, type: 3}
+  - {fileID: 1956333615074567760, guid: 805f4a994ab827f4fa05297b90527a3f, type: 3}
   PathEnemySpawnChance: 10
+  HordeSpawnChance: 50
 --- !u!4 &1124017288
 Transform:
   m_ObjectHideFlags: 0
