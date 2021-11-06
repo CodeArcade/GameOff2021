@@ -33,6 +33,7 @@ public class DungeonGenerator : MonoBehaviour
     public int HordeSpawnChance;
 
     private System.Random Random { get; set; }
+    private GameObject Player { get; set; }
 
     void Awake()
     {
@@ -48,6 +49,11 @@ public class DungeonGenerator : MonoBehaviour
         List<Vector2> allPathNodes = new List<Vector2>();
         Dictionary<Vector2, Bounds> rooms = new Dictionary<Vector2, Bounds>();
 
+        PlayerPrefab.GetComponent<ThirdPersonMovement>().mainCamera = PlayerCamera;
+        Player = Instantiate(PlayerPrefab);
+
+        Player.transform.position = new Vector3(-45, 1.5f, -23);
+
         for (int i = 0; i < Rooms.Count; i++)
             AddRoom(Rooms[i], RoomCounts[i], rooms, allPathNodes);
 
@@ -59,11 +65,6 @@ public class DungeonGenerator : MonoBehaviour
             AddPathNodes(allPathNodes, BuildPath(room.Key, GetClosestNode(room.Key, roomCoordinates)));
 
         BuildWalls(allPathNodes);
-
-        PlayerPrefab.GetComponent<ThirdPersonMovement>().mainCamera = PlayerCamera;
-        GameObject player = Instantiate(PlayerPrefab);
-
-        player.transform.position = new Vector3(-45, 1.5f, -23);
     }
 
     private void AddRoom(GameObject roomPrefab, int count, Dictionary<Vector2, Bounds> rooms, List<Vector2> allPathNodes)
@@ -153,14 +154,12 @@ public class DungeonGenerator : MonoBehaviour
 
             if (Random.Next(1, 101) <= PathEnemySpawnChance)
             {
-                GameObject enemy = PathEnemies[Random.Next(0, PathEnemies.Count)];
                 Vector3 position = GroundTilemap.CellToWorld(new Vector3Int(
                     (int)pathNode.x,
                     (int)pathNode.y,
                     (int)GroundTilemap.transform.position.z));
                 position += new Vector3(0, 1.5f, 0);
-
-                Instantiate(enemy).transform.position = position;
+                SpawnEnemy(position);
 
                 if (Random.Next(1, 101) <= HordeSpawnChance)
                 {
@@ -199,7 +198,7 @@ public class DungeonGenerator : MonoBehaviour
                                 break;
                         }
 
-                        Instantiate(enemy).transform.position = position;
+                        SpawnEnemy(position);
                     }
                 }
             }
@@ -224,6 +223,14 @@ public class DungeonGenerator : MonoBehaviour
         return allPathNodes;
     }
 
+    private void SpawnEnemy(Vector3 position)
+    {
+        GameObject enemy = Instantiate(PathEnemies[Random.Next(0, PathEnemies.Count)]);
+
+        enemy.GetComponent<Enemy>().Player = Player;
+        enemy.transform.position = position;
+    }
+
     private void BuildWalls(List<Vector2> nodes)
     {
         int counter = 0;
@@ -232,7 +239,7 @@ public class DungeonGenerator : MonoBehaviour
         {
             Debug.Log($"Building Wall { counter++ } / {nodes.Count}");
 
-            for (int i = 0; i < WallSize; i++) 
+            for (int i = 0; i < WallSize; i++)
             {
                 if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x + 1 + i, (int)pathNode.y, (int)GroundTilemap.transform.position.z)))
                     WallTilemap.SetTile(new Vector3Int((int)pathNode.x + 1 + i, (int)pathNode.y, (int)WallTilemap.transform.position.z), WallTile);
