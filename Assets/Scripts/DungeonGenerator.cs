@@ -1,12 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Tilemaps;
-using UnityEngine.UI;
 
 public class DungeonGenerator : MonoBehaviour
 {
@@ -30,6 +26,7 @@ public class DungeonGenerator : MonoBehaviour
     public GameObject BossRoom;
 
     public int PathSize;
+    public int WallSize;
 
     public List<GameObject> PathEnemies;
     public int PathEnemySpawnChance;
@@ -235,17 +232,20 @@ public class DungeonGenerator : MonoBehaviour
         {
             Debug.Log($"Building Wall { counter++ } / {nodes.Count}");
 
-            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.z)))
-                WallTilemap.SetTile(new Vector3Int((int)pathNode.x + 1, (int)pathNode.y, (int)WallTilemap.transform.position.z), WallTile);
+            for (int i = 0; i < WallSize; i++) 
+            {
+                if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x + 1 + i, (int)pathNode.y, (int)GroundTilemap.transform.position.z)))
+                    WallTilemap.SetTile(new Vector3Int((int)pathNode.x + 1 + i, (int)pathNode.y, (int)WallTilemap.transform.position.z), WallTile);
 
-            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.z)))
-                WallTilemap.SetTile(new Vector3Int((int)pathNode.x - 1, (int)pathNode.y, (int)WallTilemap.transform.position.z), WallTile);
+                if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x - 1 - i, (int)pathNode.y, (int)GroundTilemap.transform.position.z)))
+                    WallTilemap.SetTile(new Vector3Int((int)pathNode.x - 1 - i, (int)pathNode.y, (int)WallTilemap.transform.position.z), WallTile);
 
-            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1, (int)GroundTilemap.transform.position.z)))
-                WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1, (int)WallTilemap.transform.position.z), WallTile);
+                if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1 + i, (int)GroundTilemap.transform.position.z)))
+                    WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1 + i, (int)WallTilemap.transform.position.z), WallTile);
 
-            if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1, (int)GroundTilemap.transform.position.z)))
-                WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1, (int)WallTilemap.transform.position.z), WallTile);
+                if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1 - i, (int)GroundTilemap.transform.position.z)))
+                    WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1 - i, (int)WallTilemap.transform.position.z), WallTile);
+            }
         }
     }
 
