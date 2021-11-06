@@ -66,7 +66,7 @@ public class DungeonGenerator : MonoBehaviour
         PlayerPrefab.GetComponent<ThirdPersonMovement>().mainCamera = PlayerCamera;
         GameObject player = Instantiate(PlayerPrefab);
 
-        player.transform.position = new Vector3(4, 1.5f, 25);
+        player.transform.position = new Vector3(-45, 1.5f, -23);
     }
 
     private void AddRoom(GameObject roomPrefab, int count, Dictionary<Vector2, Bounds> rooms, List<Vector2> allPathNodes)
