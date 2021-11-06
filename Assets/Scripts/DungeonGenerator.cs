@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using UnityEngine.UI;
 
 public class DungeonGenerator : MonoBehaviour
 {
@@ -33,64 +34,143 @@ public class DungeonGenerator : MonoBehaviour
     public int HordeSpawnChance;
 
     private System.Random Random { get; set; }
+    private int GridOffset { get; set; } = 50;
+    //  private int GridBorder { get; set; } = 100; // A*
     private GameObject Player { get; set; }
+
+    private bool GenerationStarted { get; set; }
+    private bool GenerationFinished { get; set; }
+
+    public GameObject LoadingScreen;
+    private Text MainLoadingLabel;
+    private Text SideLoadingLabel;
+
+    private List<Vector2> OnlyPathNodes;
+    private List<Vector2> AllGroundNodes;
+    //   private bool[,] AllGroundNodesArray; // A*, true = has path, false = no path
 
     void Awake()
     {
         GenerateDungeon();
+        MainLoadingLabel = LoadingScreen.GetComponentsInChildren<Text>().First(x => x.name == "MainText");
+        SideLoadingLabel = LoadingScreen.GetComponentsInChildren<Text>().First(x => x.name == "SideText");
+        LoadingScreen.SetActive(true);
     }
 
-    private void GenerateDungeon()
+    private void FixedUpdate()
+    {
+        if (!GenerationStarted)
+        {
+            GenerationStarted = true;
+            StartCoroutine(GenerateDungeon());
+        }
+
+        if (GenerationFinished)
+        {
+            StopAllCoroutines();
+            LoadingScreen.SetActive(false);
+        }
+    }
+
+    private System.Collections.IEnumerator GenerateDungeon()
     {
         GroundTilemap.ClearAllTiles();
         WallTilemap.ClearAllTiles();
         Random = new System.Random();
+        OnlyPathNodes = new List<Vector2>();
+        AllGroundNodes = new List<Vector2>();
+        //  AllGroundNodesArray = new bool[Width + GridOffset + GridBorder, Height + GridOffset + GridBorder]; // A*
 
-        List<Vector2> allPathNodes = new List<Vector2>();
         Dictionary<Vector2, Bounds> rooms = new Dictionary<Vector2, Bounds>();
+
+        Debug.Log($"Spawning player");
+        MainLoadingLabel.text = "Spawning player";
+        SideLoadingLabel.text = "● ○ ○ ○ ○ ○ ○ ○";
+        yield return new WaitForSecondsRealtime(1);
 
         PlayerPrefab.GetComponent<ThirdPersonMovement>().mainCamera = PlayerCamera;
         Player = Instantiate(PlayerPrefab);
+        Player.transform.position = new Vector3(4, 1.5f, 25);
+        Player.SetActive(false);
 
-        Player.transform.position = new Vector3(-45, 1.5f, -23);
+        Debug.Log($"Spawning rooms");
+        MainLoadingLabel.text = "Generating rooms";
+        SideLoadingLabel.text = "● ● ○ ○ ○ ○ ○ ○";
+        yield return new WaitForSecondsRealtime(1);
 
         for (int i = 0; i < Rooms.Count; i++)
-            AddRoom(Rooms[i], RoomCounts[i], rooms, allPathNodes);
+            AddRoom(Rooms[i], RoomCounts[i], rooms);
 
-        AddRoomAtCoordinate(BossRoom, new Vector2(Width + 50, Height + 50), rooms, allPathNodes);
-        AddRoomAtCoordinate(SpawnRoom, new Vector2(-50, -50), rooms, allPathNodes);
+        Debug.Log($"Spawning main rooms");
+        MainLoadingLabel.text = "Resting";
+        SideLoadingLabel.text = "● ● ● ○ ○ ○ ○ ○";
+        yield return new WaitForSecondsRealtime(1);
+
+        AddRoomAtCoordinate(BossRoom, new Vector2(Width, Height), rooms);
+        AddRoomAtCoordinate(SpawnRoom, new Vector2(0, 0), rooms);
+        //   AddRoomAtCoordinate(SpawnRoom, new Vector2(GridBorder, GridBorder), rooms); // A*
+
+        Debug.Log($"Adding paths");
+        MainLoadingLabel.text = "Adding paths";
+        SideLoadingLabel.text = "● ● ● ● ○ ○ ○ ○";
+        yield return new WaitForSecondsRealtime(1);
 
         List<Vector2> roomCoordinates = rooms.Keys.Take(rooms.Count - 1).ToList();
         foreach (var room in rooms.Take(rooms.Count - 1))
-            AddPathNodes(allPathNodes, BuildPath(room.Key, GetClosestNode(room.Key, roomCoordinates)));
+            AddPathNodes(BuildPath(room.Key, GetClosestNode(room.Key, roomCoordinates)));
 
-        BuildWalls(allPathNodes);
+        Debug.Log($"Building walls");
+        MainLoadingLabel.text = "Building walls";
+        SideLoadingLabel.text = "● ● ● ● ● ○ ○ ○";
+        yield return new WaitForSecondsRealtime(1);
+
+        int intervall = AllGroundNodes.Count / 3;
+        
+        BuildWalls(0, intervall);
+
+        MainLoadingLabel.text = "Still building walls";
+        SideLoadingLabel.text = "● ● ● ● ● ● ○ ○";
+        yield return new WaitForSecondsRealtime(1);
+        BuildWalls(intervall, intervall * 2);
+
+        MainLoadingLabel.text = "There are a lot of walls";
+        SideLoadingLabel.text = "● ● ● ● ● ● ● ○";
+        yield return new WaitForSecondsRealtime(1);
+        BuildWalls(intervall * 2, AllGroundNodes.Count);
+
+        Debug.Log($"Summoning creepy crawlers");
+        MainLoadingLabel.text = "Summoning creepy crawlers";
+        SideLoadingLabel.text = "● ● ● ● ● ● ● ●";
+        yield return new WaitForSecondsRealtime(1);
+
+        SpawnEnemies();
+
+        Player.SetActive(true);
+        GenerationFinished = true;
     }
 
-    private void AddRoom(GameObject roomPrefab, int count, Dictionary<Vector2, Bounds> rooms, List<Vector2> allPathNodes)
+    private void AddRoom(GameObject roomPrefab, int count, Dictionary<Vector2, Bounds> rooms)
     {
         for (int i = 0; i < count; i++)
-        {
-            Debug.Log($"Spawning room {i + 1} / {count}");
-            AddRoomAtCoordinate(roomPrefab, new Vector2(Random.Next(0, Width), Random.Next(0, Height)), rooms, allPathNodes);
-        }
+            AddRoomAtCoordinate(roomPrefab, new Vector2(Random.Next(GridOffset, Width), Random.Next(GridOffset, Height)), rooms);
+        //  AddRoomAtCoordinate(roomPrefab, new Vector2(Random.Next(GridOffset + GridBorder, Width), Random.Next(GridOffset + GridBorder, Height)), rooms); // A*
     }
 
-    private Bounds? AddRoomAtCoordinate(GameObject roomPrefab, Vector2 coordinate, Dictionary<Vector2, Bounds> rooms, List<Vector2> allPathNodes)
+    private Bounds? AddRoomAtCoordinate(GameObject roomPrefab, Vector2 coordinate, Dictionary<Vector2, Bounds> rooms)
     {
         Bounds? roomBounds = null;
         List<Vector2> roomNodes = new List<Vector2>();
         int spawnTries = 5;
         int spawnTryCounter = 0;
         Vector2 center = new Vector2();
-        Room roomScript = null;
         Vector3Int position = new Vector3Int();
+        Room roomScript = null;
 
         while (spawnTryCounter != spawnTries)
         {
             position = new Vector3Int((int)coordinate.x, (int)coordinate.y, (int)GroundTilemap.transform.position.z);
             GameObject room = Instantiate(roomPrefab);
-            roomScript = room.GetComponent<Room>();
+             roomScript = room.GetComponent<Room>();
             room.transform.position = GroundTilemap.CellToWorld(position);
 
             center = roomScript.GetCenter(GroundTilemap);
@@ -113,25 +193,31 @@ public class DungeonGenerator : MonoBehaviour
 
         rooms.Add(new Vector2(position.x, position.y), roomBounds.Value);
 
-        if (allPathNodes.Any())
-            AddPathNodes(allPathNodes,
+        if (AllGroundNodes.Any())
+            AddPathNodes(
                 BuildPath(new Vector2(center.x, center.y),
-                GetClosestNode(new Vector2(center.x, center.y), allPathNodes)));
+                GetClosestNode(new Vector2(center.x, center.y), AllGroundNodes)));
 
-        AddPathNodes(allPathNodes, roomScript.GetBorderTilePositions(GroundTilemap));
-
+        AddPathNodes(roomScript.GetBorderTilePositions(GroundTilemap));
         return roomBounds;
     }
 
-    private void AddPathNode(List<Vector2> pathNodes, Vector2 node)
+    private void AddPathNode(Vector2 node)
     {
-        if (pathNodes.Any(x => x.x == node.x && x.y == node.y)) return;
-        pathNodes.Add(node);
+        if (AllGroundNodes.Any(x => x.x == node.x && x.y == node.y)) return;
+        AllGroundNodes.Add(node);
+
+        // A*
+        //try
+        //{
+        //    AllGroundNodesArray[(int)node.x, (int)node.y] = true;
+        //}
+        //catch { Debug.LogError($"{node.x} / {node.y}"); }
     }
 
-    private void AddPathNodes(List<Vector2> pathNodes, List<Vector2> nodes)
+    private void AddPathNodes(List<Vector2> nodes)
     {
-        foreach (Vector2 node in nodes) AddPathNode(pathNodes, node);
+        foreach (Vector2 node in nodes) AddPathNode(node);
     }
 
     private bool CanAddRoom(Bounds roomBounds, Dictionary<Vector2, Bounds> rooms)
@@ -149,9 +235,42 @@ public class DungeonGenerator : MonoBehaviour
 
         foreach (Vector2 pathNode in pathNodes)
         {
-            AddPathNode(allPathNodes, pathNode);
+            AddPathNode(pathNode);
+            OnlyPathNodes.Add(pathNode);
             GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
 
+            for (int i = 0; i < PathSize; i++)
+            {
+                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + i + 1, (int)GroundTilemap.transform.position.y), GroundTile);
+                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - i - 1, (int)GroundTilemap.transform.position.y), GroundTile);
+                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x + i + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x - i - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+
+                if (i == PathSize - 1)
+                {
+                    AddPathNode(new Vector2(pathNode.x + i + 1, pathNode.y));
+                    AddPathNode(new Vector2(pathNode.x - i - 1, pathNode.y));
+                    AddPathNode(new Vector2(pathNode.x, pathNode.y + i + 1));
+                    AddPathNode(new Vector2(pathNode.x, pathNode.y - i - 1));
+                }
+
+                // A*
+                //AddPathNode(new Vector2(pathNode.x + i + 1, pathNode.y));
+                //AddPathNode(new Vector2(pathNode.x - i - 1, pathNode.y));
+                //AddPathNode(new Vector2(pathNode.x, pathNode.y + i + 1));
+                //AddPathNode(new Vector2(pathNode.x, pathNode.y - i - 1));
+            }
+        }
+
+        return allPathNodes;
+    }
+
+    private void SpawnEnemies()
+    {
+      //  Grid grid = new Grid(Width, Height, AllGroundNodesArray); A*
+
+        foreach (Vector2 pathNode in OnlyPathNodes)
+        {
             if (Random.Next(1, 101) <= PathEnemySpawnChance)
             {
                 Vector3 position = GroundTilemap.CellToWorld(new Vector3Int(
@@ -159,7 +278,7 @@ public class DungeonGenerator : MonoBehaviour
                     (int)pathNode.y,
                     (int)GroundTilemap.transform.position.z));
                 position += new Vector3(0, 1.5f, 0);
-                SpawnEnemy(position);
+                SpawnEnemy(position, pathNode);
 
                 if (Random.Next(1, 101) <= HordeSpawnChance)
                 {
@@ -173,87 +292,64 @@ public class DungeonGenerator : MonoBehaviour
                                     (int)pathNode.x + 1,
                                     (int)pathNode.y,
                                     (int)GroundTilemap.transform.position.z));
-                                position += new Vector3(0, 1.5f, 0);
                                 break;
                             case 1:
                                 position = GroundTilemap.CellToWorld(new Vector3Int(
                                     (int)pathNode.x - 1,
                                     (int)pathNode.y,
                                     (int)GroundTilemap.transform.position.z));
-                                position += new Vector3(0, 1.5f, 0);
                                 break;
                             case 2:
                                 position = GroundTilemap.CellToWorld(new Vector3Int(
                                     (int)pathNode.x,
                                     (int)pathNode.y + 1,
                                     (int)GroundTilemap.transform.position.z));
-                                position += new Vector3(0, 1.5f, 0);
                                 break;
                             case 3:
                                 position = GroundTilemap.CellToWorld(new Vector3Int(
                                     (int)pathNode.x,
                                     (int)pathNode.y - 1,
                                     (int)GroundTilemap.transform.position.z));
-                                position += new Vector3(0, 1.5f, 0);
                                 break;
                         }
 
-                        SpawnEnemy(position);
+                        position += new Vector3(0, 1.5f, 0);
+                        SpawnEnemy(position, pathNode);
                     }
                 }
             }
-
-            for (int i = 0; i < PathSize; i++)
-            {
-                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + i + 1, (int)GroundTilemap.transform.position.y), GroundTile);
-                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - i - 1, (int)GroundTilemap.transform.position.y), GroundTile);
-                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x + i + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
-                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x - i - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
-
-                if (i == PathSize - 1)
-                {
-                    AddPathNode(allPathNodes, new Vector2(pathNode.x - i - 1, pathNode.y));
-                    AddPathNode(allPathNodes, new Vector2(pathNode.x + i + 1, pathNode.y));
-                    AddPathNode(allPathNodes, new Vector2(pathNode.x, pathNode.y - i - 1));
-                    AddPathNode(allPathNodes, new Vector2(pathNode.x, pathNode.y + i + 1));
-                }
-            }
         }
-
-        return allPathNodes;
     }
 
-    private void SpawnEnemy(Vector3 position)
+    private void SpawnEnemy(Vector3 position, Vector2 gridPosition, Grid grid = null)
     {
-        GameObject enemy = Instantiate(PathEnemies[Random.Next(0, PathEnemies.Count)]);
+        // AStar aStar = new AStar();
+        //// one run takes 30 seconds -> way to long
+        // List<Vector2> path = aStar.FindPath(grid, gridPosition, new Vector2(Width, Height));
 
-        enemy.GetComponent<Enemy>().Player = Player;
-        enemy.transform.position = position;
+        int maxDistance = (int)Mathf.Sqrt((new Vector2(0, 0) - new Vector2(Width, Height)).sqrMagnitude);
+        int distanceToBoss = (int)Mathf.Sqrt((gridPosition - new Vector2(Width, Height)).sqrMagnitude);
+
+        Instantiate(PathEnemies[Random.Next(0, PathEnemies.Count)]).GetComponent<Enemy>().Spawn(position, (maxDistance - distanceToBoss) / 10, Player);
     }
 
-    private void BuildWalls(List<Vector2> nodes)
+    private void BuildWalls(int from, int to)
     {
-        int counter = 0;
-
-        foreach (var pathNode in nodes)
-        {
-            Debug.Log($"Building Wall { counter++ } / {nodes.Count}");
-
+        for(int f = from; f < to; f++)
             for (int i = 0; i < WallSize; i++)
             {
-                if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x + 1 + i, (int)pathNode.y, (int)GroundTilemap.transform.position.z)))
-                    WallTilemap.SetTile(new Vector3Int((int)pathNode.x + 1 + i, (int)pathNode.y, (int)WallTilemap.transform.position.z), WallTile);
+                if (!GroundTilemap.HasTile(new Vector3Int((int)AllGroundNodes[f].x + 1 + i, (int)AllGroundNodes[f].y, (int)GroundTilemap.transform.position.z)))
+                    WallTilemap.SetTile(new Vector3Int((int)AllGroundNodes[f].x + 1 + i, (int)AllGroundNodes[f].y, (int)WallTilemap.transform.position.z), WallTile);
 
-                if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x - 1 - i, (int)pathNode.y, (int)GroundTilemap.transform.position.z)))
-                    WallTilemap.SetTile(new Vector3Int((int)pathNode.x - 1 - i, (int)pathNode.y, (int)WallTilemap.transform.position.z), WallTile);
+                if (!GroundTilemap.HasTile(new Vector3Int((int)AllGroundNodes[f].x - 1 - i, (int)AllGroundNodes[f].y, (int)GroundTilemap.transform.position.z)))
+                    WallTilemap.SetTile(new Vector3Int((int)AllGroundNodes[f].x - 1 - i, (int)AllGroundNodes[f].y, (int)WallTilemap.transform.position.z), WallTile);
 
-                if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1 + i, (int)GroundTilemap.transform.position.z)))
-                    WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + 1 + i, (int)WallTilemap.transform.position.z), WallTile);
+                if (!GroundTilemap.HasTile(new Vector3Int((int)AllGroundNodes[f].x, (int)AllGroundNodes[f].y + 1 + i, (int)GroundTilemap.transform.position.z)))
+                    WallTilemap.SetTile(new Vector3Int((int)AllGroundNodes[f].x, (int)AllGroundNodes[f].y + 1 + i, (int)WallTilemap.transform.position.z), WallTile);
 
-                if (!GroundTilemap.HasTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1 - i, (int)GroundTilemap.transform.position.z)))
-                    WallTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - 1 - i, (int)WallTilemap.transform.position.z), WallTile);
+                if (!GroundTilemap.HasTile(new Vector3Int((int)AllGroundNodes[f].x, (int)AllGroundNodes[f].y - 1 - i, (int)GroundTilemap.transform.position.z)))
+                    WallTilemap.SetTile(new Vector3Int((int)AllGroundNodes[f].x, (int)AllGroundNodes[f].y - 1 - i, (int)WallTilemap.transform.position.z), WallTile);
             }
-        }
     }
 
     private Vector2 GetClosestNode(Vector2 sourceNode, List<Vector2> nodes)

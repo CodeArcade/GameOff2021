@@ -17,6 +17,8 @@ public abstract class Enemy : MonoBehaviour
     public float AttackSpeedInSeconds = 1;
     private float AttackSpeedTimer;
 
+    public int PowerLevel = 0;
+
     public List<Item.Item> Drops { get; set; }
 
     private CharacterController CharacterController;
@@ -34,6 +36,15 @@ public abstract class Enemy : MonoBehaviour
         DetectionArea.isTrigger = true;
 
         CharacterController = gameObject.GetComponent<CharacterController>();
+    }
+
+    public void Spawn(Vector3 position, int powerLevel, GameObject player)
+    {
+        gameObject.transform.position = position;
+        PowerLevel = powerLevel;
+        Player = player;
+
+        ApplyPowerLevel();
     }
 
     void FixedUpdate()
@@ -84,6 +95,12 @@ public abstract class Enemy : MonoBehaviour
     {
         AttackSpeedTimer = 0;
         IsAttacking = false;
+    }
+
+    protected virtual void ApplyPowerLevel()
+    {
+        Health += PowerLevel;
+        Damage += PowerLevel;
     }
 
 }
