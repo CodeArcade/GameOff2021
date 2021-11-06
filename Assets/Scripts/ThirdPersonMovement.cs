@@ -8,21 +8,32 @@ public class ThirdPersonMovement : MonoBehaviour
   public CharacterController controller;
   public Camera mainCamera;
 
+  public bool canMove = true;
   public float speed = 6f;
+  public float dashCooldown = 1f;
+  public float dashDuration = 0.2f;
+  public float dashSpeedMultiplier = 3f;
 
-  public float turnSmoothTime = 0.1f;
-
+  bool isDodging = false;
+  float dashTimer = 0f;
   // Update is called once per frame
   void Update()
   {
+    lookTowardsMouse();
+    if (!canMove) return;
+    
+    move();
+    dash();
+  }
+
+  void move()
+  {
     Vector3 direction = getMovementDirection();
 
-    if (direction.magnitude >= 0.1f)
+    if (!isDodging && direction.magnitude >= 0.1f)
     {
       controller.Move(direction * speed * Time.deltaTime);
     }
-
-    lookTowardsMouse();
   }
 
   Vector3 getMovementDirection()
@@ -56,6 +67,30 @@ public class ThirdPersonMovement : MonoBehaviour
       Debug.DrawLine(cameraRay.origin, pointToLook, Color.cyan);
 
       transform.LookAt(new Vector3(pointToLook.x, transform.position.y, pointToLook.z));
+    }
+  }
+
+  void dash()
+  {
+    dashTimer += Time.deltaTime;
+
+    if (isDodging && dashTimer < dashDuration)
+    {
+      controller.Move(transform.forward * speed * dashSpeedMultiplier * Time.deltaTime);
+    }
+
+    if (dashTimer >= dashDuration)
+    {
+      isDodging = false;
+    }
+
+    if (dashTimer < dashCooldown) return;
+
+    if (Input.GetKeyDown(KeyCode.Space))
+    {
+      isDodging = true;
+      dashTimer = 0f;
+      controller.Move(transform.forward * speed * dashSpeedMultiplier * Time.deltaTime);
     }
   }
 }
