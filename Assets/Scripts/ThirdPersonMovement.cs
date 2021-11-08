@@ -15,7 +15,7 @@ public class ThirdPersonMovement : MonoBehaviour
   public float dashSpeedMultiplier = 3f;
 
   bool isDodging = false;
-  float dashTimer = 0f;
+  public float dashTimer { get; private set; } = 0f;
   // Update is called once per frame
   void Update()
   {

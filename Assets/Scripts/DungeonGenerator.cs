@@ -41,6 +41,8 @@ public class DungeonGenerator : MonoBehaviour
     private bool GenerationStarted { get; set; }
     private bool GenerationFinished { get; set; }
 
+    public GameObject Ui;
+
     public GameObject LoadingScreen;
     private Text MainLoadingLabel;
     private Text SideLoadingLabel;
@@ -93,6 +95,8 @@ public class DungeonGenerator : MonoBehaviour
         Player = Instantiate(PlayerPrefab);
         Player.transform.position = new Vector3(4, 1.5f, 25);
         Player.SetActive(false);
+
+        Ui.GetComponentInChildren<Roll>().Player = Player.GetComponent<ThirdPersonMovement>();
 
         Debug.Log($"Spawning rooms");
         MainLoadingLabel.text = "Generating rooms";
