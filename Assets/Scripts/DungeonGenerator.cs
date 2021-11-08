@@ -48,6 +48,7 @@ public class DungeonGenerator : MonoBehaviour
     private List<Vector2> OnlyPathNodes;
     private List<Vector2> AllGroundNodes;
     //   private bool[,] AllGroundNodesArray; // A*, true = has path, false = no path
+    private List<RoomSpawner> Spawner = new List<RoomSpawner>();
 
     void Awake()
     {
@@ -165,6 +166,7 @@ public class DungeonGenerator : MonoBehaviour
         Vector2 center = new Vector2();
         Vector3Int position = new Vector3Int();
         Room roomScript = null;
+        List<RoomSpawner> spawner = new List<RoomSpawner>();
 
         while (spawnTryCounter != spawnTries)
         {
@@ -176,6 +178,7 @@ public class DungeonGenerator : MonoBehaviour
             center = roomScript.GetCenter(GroundTilemap);
             roomNodes = roomScript.GetFloorTilePositions(GroundTilemap);
             roomBounds = roomScript.GetBounds(roomNodes, GroundTilemap);
+            spawner = room.GetComponentsInChildren<RoomSpawner>().ToList();
             spawnTryCounter++;
 
             if (CanAddRoom(roomBounds.Value, rooms))
@@ -187,6 +190,8 @@ public class DungeonGenerator : MonoBehaviour
         }
 
         if (spawnTryCounter == spawnTries) return null;
+
+        Spawner.AddRange(spawner);
 
         foreach (Vector2 roomNode in roomNodes)
             GroundTilemap.SetTile(new Vector3Int((int)roomNode.x, (int)roomNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
@@ -268,6 +273,9 @@ public class DungeonGenerator : MonoBehaviour
     private void SpawnEnemies()
     {
         //  Grid grid = new Grid(Width, Height, AllGroundNodesArray); A*
+
+        foreach (RoomSpawner spawner in Spawner)
+            spawner.Spawn(new Vector2(Width, Height), GroundTilemap, Player);
 
         foreach (Vector2 pathNode in OnlyPathNodes)
         {
