@@ -125,7 +125,7 @@ public class DungeonGenerator : MonoBehaviour
         yield return new WaitForSecondsRealtime(1);
 
         int intervall = AllGroundNodes.Count / 3;
-        
+
         BuildWalls(0, intervall);
 
         MainLoadingLabel.text = "Still building walls";
@@ -170,7 +170,7 @@ public class DungeonGenerator : MonoBehaviour
         {
             position = new Vector3Int((int)coordinate.x, (int)coordinate.y, (int)GroundTilemap.transform.position.z);
             GameObject room = Instantiate(roomPrefab);
-             roomScript = room.GetComponent<Room>();
+            roomScript = room.GetComponent<Room>();
             room.transform.position = GroundTilemap.CellToWorld(position);
 
             center = roomScript.GetCenter(GroundTilemap);
@@ -237,14 +237,14 @@ public class DungeonGenerator : MonoBehaviour
         {
             AddPathNode(pathNode);
             OnlyPathNodes.Add(pathNode);
-            GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+            SetGroundTile(new Vector3Int((int)pathNode.x, (int)pathNode.y, (int)GroundTilemap.transform.position.y));
 
             for (int i = 0; i < PathSize; i++)
             {
-                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + i + 1, (int)GroundTilemap.transform.position.y), GroundTile);
-                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - i - 1, (int)GroundTilemap.transform.position.y), GroundTile);
-                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x + i + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
-                GroundTilemap.SetTile(new Vector3Int((int)pathNode.x - i - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y), GroundTile);
+                SetGroundTile(new Vector3Int((int)pathNode.x, (int)pathNode.y + i + 1, (int)GroundTilemap.transform.position.y));
+                SetGroundTile(new Vector3Int((int)pathNode.x, (int)pathNode.y - i - 1, (int)GroundTilemap.transform.position.y));
+                SetGroundTile(new Vector3Int((int)pathNode.x + i + 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y));
+                SetGroundTile(new Vector3Int((int)pathNode.x - i - 1, (int)pathNode.y, (int)GroundTilemap.transform.position.y));
 
                 if (i == PathSize - 1)
                 {
@@ -267,7 +267,7 @@ public class DungeonGenerator : MonoBehaviour
 
     private void SpawnEnemies()
     {
-      //  Grid grid = new Grid(Width, Height, AllGroundNodesArray); A*
+        //  Grid grid = new Grid(Width, Height, AllGroundNodesArray); A*
 
         foreach (Vector2 pathNode in OnlyPathNodes)
         {
@@ -335,22 +335,35 @@ public class DungeonGenerator : MonoBehaviour
 
     private void BuildWalls(int from, int to)
     {
-        for(int f = from; f < to; f++)
+        for (int f = from; f < to; f++)
             for (int i = 0; i < WallSize; i++)
             {
                 if (!GroundTilemap.HasTile(new Vector3Int((int)AllGroundNodes[f].x + 1 + i, (int)AllGroundNodes[f].y, (int)GroundTilemap.transform.position.z)))
-                    WallTilemap.SetTile(new Vector3Int((int)AllGroundNodes[f].x + 1 + i, (int)AllGroundNodes[f].y, (int)WallTilemap.transform.position.z), WallTile);
+                {
+                    SetWallTile(new Vector3Int((int)AllGroundNodes[f].x + 1 + i, (int)AllGroundNodes[f].y, (int)WallTilemap.transform.position.z));
+                }
 
                 if (!GroundTilemap.HasTile(new Vector3Int((int)AllGroundNodes[f].x - 1 - i, (int)AllGroundNodes[f].y, (int)GroundTilemap.transform.position.z)))
-                    WallTilemap.SetTile(new Vector3Int((int)AllGroundNodes[f].x - 1 - i, (int)AllGroundNodes[f].y, (int)WallTilemap.transform.position.z), WallTile);
+                {
+                    SetWallTile(new Vector3Int((int)AllGroundNodes[f].x - 1 - i, (int)AllGroundNodes[f].y, (int)WallTilemap.transform.position.z));
+                }
 
                 if (!GroundTilemap.HasTile(new Vector3Int((int)AllGroundNodes[f].x, (int)AllGroundNodes[f].y + 1 + i, (int)GroundTilemap.transform.position.z)))
-                    WallTilemap.SetTile(new Vector3Int((int)AllGroundNodes[f].x, (int)AllGroundNodes[f].y + 1 + i, (int)WallTilemap.transform.position.z), WallTile);
+                {
+                    SetWallTile(new Vector3Int((int)AllGroundNodes[f].x, (int)AllGroundNodes[f].y + 1 + i, (int)WallTilemap.transform.position.z));
+                }
 
                 if (!GroundTilemap.HasTile(new Vector3Int((int)AllGroundNodes[f].x, (int)AllGroundNodes[f].y - 1 - i, (int)GroundTilemap.transform.position.z)))
-                    WallTilemap.SetTile(new Vector3Int((int)AllGroundNodes[f].x, (int)AllGroundNodes[f].y - 1 - i, (int)WallTilemap.transform.position.z), WallTile);
+                {
+                    SetWallTile(new Vector3Int((int)AllGroundNodes[f].x, (int)AllGroundNodes[f].y - 1 - i, (int)WallTilemap.transform.position.z));
+                }
             }
     }
+
+    private void SetWallTile(Vector3Int position) => SetTile(position, WallTile, WallTilemap);
+    private void SetGroundTile(Vector3Int position) => SetTile(position, GroundTile, GroundTilemap);
+
+    private void SetTile(Vector3Int position, TileBase tileToPlace, Tilemap tilemap) => tilemap.SetTile(position, tileToPlace);
 
     private Vector2 GetClosestNode(Vector2 sourceNode, List<Vector2> nodes)
     {

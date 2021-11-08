@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,6 +19,8 @@ public abstract class Enemy : MonoBehaviour
     private float AttackSpeedTimer;
 
     public int PowerLevel = 0;
+
+    public Guid Guid { get; private set; }
 
     public List<Item.Item> Drops { get; set; }
 
@@ -43,6 +46,9 @@ public abstract class Enemy : MonoBehaviour
         gameObject.transform.position = position;
         PowerLevel = powerLevel;
         Player = player;
+        Guid = Guid.NewGuid();
+        gameObject.SetActive(false);
+        DynamicActivationScript.GameObjects.TryAdd(Guid, gameObject);
 
         ApplyPowerLevel();
     }
